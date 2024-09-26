@@ -17,9 +17,9 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 FILE = Path("100k_sample.csv")
 
 IMPORTANCE_SCORES: Dict[str, float] = {
-    "orderingcustomername": 0.3,
-    "orderingcustomerdetails": 0.2,
-    "orderingbankraw": 0.5}
+    "col1": 0.3,
+    "col2": 0.2,
+    "col3": 0.5}
 
 
 class Profiling:
