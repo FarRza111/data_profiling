@@ -1,0 +1,38 @@
+ body {
+    font-family: Arial, sans-serif;
+    margin: 40px;
+    padding: 20px;
+    background-color: #000000; /* Set background to black */
+    color: #ffffff; /* Set text color to white */
+}
+
+h1, h2 {
+    color: #ffffff; /* Headings in white */
+}
+
+form {
+    margin-bottom: 20px;
+}
+
+button {
+    background-color: #4CAF50;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    cursor: pointer;
+}
+
+button:hover {
+    background-color: #45a049;
+}
+
+pre {
+    background-color: #333333; /* Dark background for preformatted text */
+    color: #ffffff; /* White text for preformatted sections */
+    padding: 10px;
+    border: 1px solid #ddd;
+}
+
+a {
+    color: #4CAF50; /* Green links for better contrast */
+}
