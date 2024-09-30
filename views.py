@@ -1,46 +1,37 @@
 import pandas as pd
 from datetime import datetime
+from typing import Union, Dict
 import numpy as np
 
+IMPORTANCE_WEIGHTS: dict[str, float | int] = {
 
-importance_weights = {
-
-        "col1": 0.4,
-        "col2": 0.4,
-        "col3": 1,
-        "col4": 2,
-        "col5": 0.7,
-        "col6":0.2,
-        "col7": 0.9
+    "col1": 0.6,
+    "col2": 0.6,
+    "col3": 0.9,
 }
 
+EXAMPLE_SCORES: dict[str, float | int] = {
 
-def calculate_metrics(df, importance_weights):
+    "col1": 0.4,
+    "col2": 0.4,
+    "col3": 1,
+}
 
+def calculate_metrics(df, importance_weights: Dict[str, Union[int, float]] = IMPORTANCE_WEIGHTS,
+                      example_scores: dict[str, Union[int, float]] = EXAMPLE_SCORES):
     results = {}
-    example_socres = {
-
-     "col1": 0.1,
-        "col2": 0.1,
-        "col3": 1,
-        "col4": 0.9,
-        "col5": 0.6,
-        "col6":0.1,
-        "col7": 0.8
-
-
-    }
 
     for col in df.columns:
         total_count = len(df[col])  # Total number of rows
         missing_count = df[col].isna().sum()  # Count NaN values for real missing data
         completeness_score = (1 - (missing_count / total_count)) * 100 if total_count > 0 else 0
-        adjusted_completeness = (df[col].isna().sum()/len(df[col])) * 100 * example_socres[col]
-        uniqueness_score = (df[col].nunique() / total_count) * 100 if total_count > 0 else 0         # Uniqueness: Percentage of unique values in the column
-        weighted_completeness = completeness_score * importance_weights.get(col, 1)
+        adjusted_completeness = (df[col].isna().sum() / len(df[col])) * 100 * EXAMPLE_SCORES[ col] if completeness_score < 95 else completeness_score
+        uniqueness_score = (df[
+                                col].nunique() / total_count) * 100 if total_count > 0 else 0  # Uniqueness: Percentage of unique values in the column
+        weighted_completeness = completeness_score * IMPORTANCE_WEIGHTS.get(col, 1)
         # weighted_missing_on_actual_data = total_count * importance_weights[col]/()
 
-        if col == 'amount32a':
+        if pd.api.types.is_numeric_dtype(df[col]):
             accuracy_score = (df[col] > 0).sum() / total_count * 100
             Q1 = df[col].quantile(0.25)
             Q3 = df[col].quantile(0.75)
@@ -52,10 +43,11 @@ def calculate_metrics(df, importance_weights):
             accuracy_score = 60
             outliers = 0  # No outlier detection for text fields
 
-        # Error Rate: Complement of accuracy
         error_rate = 100 - accuracy_score
 
         results[col] = {
+            'total_count': total_count,
+            'missing_count': missing_count,
             'completeness_score': completeness_score,
             'weighted_completeness': weighted_completeness,
             'accuracy_score': accuracy_score,
@@ -70,45 +62,16 @@ def calculate_metrics(df, importance_weights):
 
 if __name__ == "__main__":
     df = pd.read_csv('100k_sample.csv',
-                     nrows=10,
-                     usecols=[
-                  "col1": 0.1,
-                  "col2": 0.1,
-                  "col3": 1,
-                  "col4": 0.9,
-                  "col5": 0.6,
-                  "col6":0.1,
-                  "col7": 0.8
-                     ]
+                     nrows=10
+                     , usecols=["col1", "col2","col3"]
+
                      )
 
-    metrics = calculate_metrics(df, importance_weights)
+    metrics = calculate_metrics(df, IMPORTANCE_WEIGHTS)
     metrics_df = pd.DataFrame(metrics).T
     metrics_df['date'] = datetime.now().date()
     metrics_df.reset_index()
 
     final_df = metrics_df.reset_index().rename(columns={'index': 'column_names'})
-    # final_df.to_csv("history_quality.csv", index=False)
-    # csv_history_file = "history_quality.csv"
 
-    # try:
-    #     history_df = pd.read_csv(csv_history_file)
-    #     history_df = pd.concat([history_df, final_df], ignore_index=True)
-    # except FileNotFoundError:
-    #     history_df = final_df
-    #
-    # history_df.to_csv("history_quality.csv", index=False)
-    # print(history_df)
-    # print(final_df)
-
-    # for index, row in final_df.iterrows():
-    #     # metric_data = (
-    #     #
-    #     #     row['adjusted_completeness'],
-    #     #
-    #     # )
-    #     #
-    #     # print(metric_data)
-    #     print(row['column_names'])
-
-    final_df
+    print(final_df)
