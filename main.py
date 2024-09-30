@@ -1,25 +1,38 @@
+import uvicorn
+import shutil
 import logging
+from datetime import datetime
+from models import SQLALCHEMY_DATABASE_URL
+from views import calculate_metrics
 import pandas as pd
+from pathlib import Path
 from jinja2 import Template
 from typing import Union, Dict
-from fastapi import FastAPI, Request, Form
+from fastapi import FastAPI, Request, Form, UploadFile, File
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
-from pathlib import Path
-
+from IPython.display import HTML
 
 app = FastAPI()
 
 # Serve static files like CSS
 app.mount("/static", StaticFiles(directory="static"), name="static")
-
 # Path to the CSV file
 FILE = Path("100k_sample.csv")
 
-IMPORTANCE_SCORES: Dict[str, float] = {
-    "col1": 0.3,
-    "col2": 0.2,
-    "col3": 0.5}
+IMPORTANCE_WEIGHTS: dict[str, float | int] = {
+    "col1": 0.4,
+    "col2": 0.4,
+    "col3": 1
+
+}
+
+EXAMPLE_SCORES: dict[str, float | int] = {
+
+    "col1": 0.4,
+    "col2": 0.4,
+    "col3": 1
+}
 
 
 class Profiling:
@@ -27,54 +40,48 @@ class Profiling:
         self.filename = filename
         self.full_path = Path(filename).absolute()
 
-    def read_data(self, n: int) -> pd.DataFrame:
-        data = pd.read_csv(self.full_path, nrows=n)
+    def read_data(self, n: int, usecols=None)-> pd.DataFrame:
+
+        if usecols is None:
+            usecols = [
+                "col1", "col2", "col3"
+            ]
+        data = pd.read_csv(self.full_path, nrows=n, usecols=usecols)
         return data
+
+    @staticmethod
+    def calc_metrics(df, importance_scores: dict, constants: Union[Dict[str, int], None] = None):
+        metrics = calculate_metrics(df)
+        metrics_df = pd.DataFrame(metrics).T
+        metrics_df['date'] = datetime.now().date()
+        metrics_df.reset_index()
+        final_df = metrics_df.reset_index().rename(columns={'index': 'column_names'})
+        return final_df
+
 
     @staticmethod
     def missing_values(df: pd.DataFrame) -> pd.DataFrame:
         return df.isnull().sum()
 
+
     @staticmethod
     def nan_prop_data(df: pd.DataFrame) -> float:
         return df.isna().sum().sum() / df.size * 100
 
-    @staticmethod
-    def completeness_score(df: pd.DataFrame) -> list:
-        completeness = [
-            f"column={col}: completeness score for missings: {((df[col].isnull().sum() / df[col].size) * 100):.2f}%" for
-            col in df.columns]
-        return completeness
-
-    @staticmethod
-    def missing_values_relativity(df: pd.DataFrame, constants: Union[Dict[str, int], None] = None) -> list:
-        results = []
-        for column in df.columns:
-            completeness = (df[column].isna().sum() / df[column].size) * 100
-            if column in constants:
-                adjusted = f"Adjusted completeness score for {column} is: {constants[column] * completeness:.2f}%"
-                results.append(adjusted)
-            else:
-                results.append(f"Completeness score for {column} is: {completeness:.2f}%")
-        return results
-
-
-profiling = Profiling("100k_sample.csv")
-
-
-# Define the FastAPI routes
+# profiling = Profiling("100k_sample.csv")
 
 @app.get("/", response_class=HTMLResponse)
 async def index():
     return """
     <html>
         <head>
-            <title>Data Profiling</title>
             <link rel="stylesheet" href="/static/style.css">
         </head>
         <body>
-            <h1>Data Profiling Tool</h1>
-            <form action="/profile" method="post">
+            <h1>  </h1>
+            <form action="/profile" method="post" enctype="multipart/form-data">
+                <label for="file">Upload a CSV File:</label>
+                <input type="file" id="file" name="file" accept=".csv" required>
                 <label for="n">Number of Rows to Load:</label>
                 <input type="number" id="n" name="n" value="5" min="1">
                 <button type="submit">Profile Data</button>
@@ -83,49 +90,42 @@ async def index():
     </html>
     """
 
-
 @app.post("/profile", response_class=HTMLResponse)
-async def profile_data(n: int = Form(...)):
-    # Read the specified number of rows
-    raw_data = profiling.read_data(n=n)
+async def profile_data(n: int = Form(...), file: UploadFile = File(...)):
+    temp_file_path = Path("temp_uploaded_file.csv")
+    with open(temp_file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
 
-    # Compute missing values and completeness score
+    profiling = Profiling(str(temp_file_path))
+    raw_data = profiling.read_data(n=n)
     missing_values = profiling.missing_values(raw_data).to_dict()
     nan_prop = profiling.nan_prop_data(raw_data)
-    completeness_scores = profiling.completeness_score(raw_data)
-    relativity_scores = profiling.missing_values_relativity(raw_data, constants=IMPORTANCE_SCORES)
+    calculated_metrics = profiling.calc_metrics(raw_data, IMPORTANCE_WEIGHTS)
 
     # Render the results in the UI
     html_content = f"""
     <html>
         <head>
-            <title>Data Profiling Results</title>
+            <title>Data Profiling Results for table {profiling.filename}</title>       
             <link rel="stylesheet" href="/static/style.css">
         </head>
         <body>
-            <h1>Profiling Results for {n} rows</h1>
-            <h2>Missing Values</h2>
+            <div>
+                 <h1 class="col-xs-8 text-center"> Profiling Results for {n} rows</h1>
+            </div> 
+
+            <h2> Missing Values:</h2>
             <pre>{missing_values}</pre>
             <h2>NaN Proportion in Data</h2>
-            <p>{nan_prop:.2f}% of the data is missing.</p>
-            <h2>Completeness Scores</h2>
-            <ul>
-                {''.join([f"<li>{score}</li>" for score in completeness_scores])}
+             <p>  {nan_prop:.2f}% of the data is missing.</p>
+
+            <h2> Metrics Matrix </h2>
             </ul>
-            <h2>Missing Values Relativity</h2>
-            <ul>
-                {''.join([f"<li>{score}</li>" for score in relativity_scores])}
+                {calculated_metrics.to_html()}
             </ul>
+
             <a href="/">Go Back</a>
         </body>
     </html>
     """
     return HTMLResponse(content=html_content)
-
-
-if __name__ == "__main__":
-    import uvicorn
-
-    uvicorn.run(app, host="0.0.0.0", port=8000)
-
-
