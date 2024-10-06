@@ -5,6 +5,36 @@ import pandas as pd
 import pyodbc as odbc
 
 
+# master_metrics.sql
+#  WITH T AS (
+#            SELECT
+#                 'validity' AS metric_type,
+#                 'customername' AS cde,
+#             COUNT(*) AS total_records,
+#             SUM(CASE WHEN LENGTH(customer_id) = 11 AND regexp_like(customer_id, '^[A-Z]4[A-Z]2[A-Z0-9]2[A-Z0-9]3$') THEN 1 ELSE 0 END) as valid_records
+#             FROM table_name
+#             UNION ALL
+
+#              SELECT
+#                 'completeness AS metric_type,
+#                 'customer_id' AS cde,
+#             COUNT(*) AS total_records,
+#             SUM(CASE WHEN customer_id IS NOT NULL THEN 1 ELSE 0 END) as valid_records
+#             FROM table_name
+
+#             )
+
+# SELECT
+#  current_database() as db_name, to_date(now()) as run_date,  "sales_fact" as table_name, *, total_records - valid_records as invalid_records, valid_records/total_records as metric_percentage
+# FROM T
+
+
+
+
+
+
+
+
 # reading master queries from master_metrics.sql
 def read_sql_file(file_name):
     with open(file_name, 'r') as file:
