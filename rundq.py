@@ -9,7 +9,7 @@ import pyodbc as odbc
 #  WITH T AS (
 #            SELECT
 #                 'validity' AS metric_type,
-#                 'customername' AS cde,
+#                 'customer_id' AS cde,
 #             COUNT(*) AS total_records,
 #             SUM(CASE WHEN LENGTH(customer_id) = 11 AND regexp_like(customer_id, '^[A-Z]4[A-Z]2[A-Z0-9]2[A-Z0-9]3$') THEN 1 ELSE 0 END) as valid_records
 #             FROM table_name
